@@ -1,290 +1,208 @@
-# JARVIS Acadêmico 
+# TUTORIAL — Como rodar o JARVIS Acadêmico do zero
 
-> Assistente pessoal inteligente para estudantes universitários, com **RAG**, **Tool Calling** e LLM **Gemma 12B**.
-
-Trabalho prático da disciplina, **Entrega 1** (Funcionalidades 3.1, 3.2 e 3.3 do enunciado).
-
----
-
-## Visão geral
-
-O JARVIS Acadêmico é um agente conversacional em Python que ajuda estudantes a:
-
-- Consultar materiais de estudo via **RAG** (Retrieval-Augmented Generation)
-- Gerenciar uma **agenda acadêmica** (aulas, provas, trabalhos)
-- Gerenciar uma **lista de tarefas** (adicionar, listar, concluir, remover)
-
-A "inteligência" do sistema vem da LLM **Gemma 12B** (acessada via API fornecida pelo professor), que decide autonomamente qual **ferramenta** chamar para cada pergunta do usuário.
+Este guia assume que você nunca rodou um projeto Python na sua máquina.
+Cada passo está explicado, e no final tem um capítulo de problemas
+comuns. Leia com calma.
 
 ---
 
-## Arquitetura
+## 1. Instalar o Python (se ainda não tiver)
 
-```
-┌──────────────────┐    ┌─────────────────────────────────────────┐
-│                  │    │              JARVIS (Python)            │
-│   Usuário (CLI)  │◀──▶│  ┌────────────────┐  ┌───────────────┐  │
-│                  │    │  │   Cérebro      │  │  8 Tools      │  │
-└──────────────────┘    │  │  (jarvis.py)   │─▶│  (tools.py)   │  │
-                        │  │                │  │               │  │
-                        │  │  Decide qual   │  │ consultar_... │  │
-                        │  │  ferramenta    │  │ listar_...    │  │
-                        │  │  chamar        │  │ adicionar_... │  │
-                        │  └────────────────┘  │ buscar_rag    │  │
-                        │          │           └───────────────┘  │
-                        │          ▼                              │
-                        │  ┌────────────────────────────────────┐ │
-                        │  │  Gemma 12B  (llm_client.py)        │ │
-                        │  └────────────────────────────────────┘ │
-                        │          │                              │
-                        │          ▼                              │
-                        │  ┌──────────┐  ┌──────────┐ ┌─────────┐ │
-                        │  │   RAG    │  │  Agenda  │ │ Tarefas │ │
-                        │  │ (rag.py) │  │  (JSON)  │ │ (JSON)  │ │
-                        │  └──────────┘  └──────────┘ └─────────┘ │
-                        └─────────────────────────────────────────┘
-```
-
-**Pipeline de uma pergunta:**
-1. Usuário digita uma mensagem.
-2. `jarvis.py` envia ao LLM com a lista de ferramentas disponíveis.
-3. O LLM responde em JSON indicando qual ferramenta usar e com quais argumentos.
-4. `tools.py` executa a ferramenta e registra log em `logs/tool_calls.log`.
-5. O LLM transforma o resultado bruto em resposta natural ao usuário.
-
----
-
-## Funcionalidades implementadas (Trabalho 1)
-
-### 3.1 — Consulta a materiais de estudo (RAG) 
-- Carregamento automático de `.txt`, `.md` e `.pdf` da pasta `data/`.
-- **Chunking inteligente** que preserva parágrafos (~500 caracteres com 50 de sobreposição quando necessário).
-- **Embeddings** com `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (modelo open-source multilíngue, roda localmente).
-- **Similaridade do cosseno** para recuperar os top-K trechos mais relevantes.
-- **Geração aumentada**: o Gemma responde usando apenas os trechos recuperados.
-
-### 3.2 — Agenda acadêmica 
-- Adicionar e remover eventos (aulas, provas, trabalhos, reuniões).
-- Consultar por "hoje", "amanhã", "semana", "todos" ou data específica.
-- Armazenamento em JSON (`storage/agenda.json`).
-
-### 3.3 — Lista de tarefas 
-- Adicionar tarefa com prazo e prioridade.
-- Listar (pendentes / concluídas / todas).
-- Marcar como concluída e remover.
-- Armazenamento em JSON (`storage/tarefas.json`).
-
----
-
-## Tool Calling
-
-O sistema implementa **8 ferramentas** (o enunciado pede no mínimo 5):
-
-| # | Ferramenta              | Propósito                                            |
-|---|-------------------------|------------------------------------------------------|
-| 1 | `consultar_agenda`      | Consultar eventos da agenda                          |
-| 2 | `adicionar_evento`      | Adicionar evento à agenda                            |
-| 3 | `listar_tarefas`        | Listar tarefas (filtros: pendentes/concluídas/todas) |
-| 4 | `adicionar_tarefa`      | Criar nova tarefa                                    |
-| 5 | `concluir_tarefa`       | Marcar tarefa como concluída                         |
-| 6 | `remover_tarefa`        | Remover tarefa                                       |
-| 7 | `buscar_material_rag`   | Buscar resposta nos materiais de estudo (RAG)        |
-| 8 | `responder_diretamente` | Saudações, perguntas gerais sem fonte                |
-
-**Características:**
-- Decisão **feita pela LLM**, não por lógica fixa (regex/if-else).
-- Todas as chamadas são **logadas** em `logs/tool_calls.log` com timestamp, entrada e saída.
-
----
-
-## Tecnologias
-
-| Categoria             | Tecnologia                                          |
-|-----------------------|-----------------------------------------------------|
-| Linguagem             | Python 3.10+                                        |
-| LLM                   | Google Gemma 3 12B (via endpoint da LIA-UFMS)       |
-| Cliente LLM           | `openai` (compatível com endpoint OpenAI-like)      |
-| Embeddings            | `sentence-transformers` (MiniLM-L12 multilíngue)    |
-| Vetorização/Busca     | `numpy` (similaridade do cosseno manual)            |
-| Leitura de PDFs       | `pypdf`                                             |
-| Persistência          | JSON puro (arquivos locais)                         |
-| Testes                | `unittest` (padrão da stdlib)                       |
-
----
-
-## Instalação
-
-### Pré-requisitos
-- Python 3.10 ou superior
-- ~1 GB de espaço em disco (para o modelo de embeddings + PyTorch)
-- Conexão à internet (apenas na 1ª execução, para baixar o modelo)
-
-### Passo a passo
+Abra o terminal e digite:
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/<seu-usuario>/jarvis-academico.git
-cd jarvis-academico
+python --version
+```
 
-# 2. Crie um ambiente virtual
+Se aparecer algo como `Python 3.10.12` (ou qualquer versão 3.10+),
+você já tem. Se der erro, instale o Python:
+
+- **Windows**: vá em https://www.python.org/downloads/ e baixe o
+  instalador. **Marque a opção "Add Python to PATH"** antes de
+  clicar em Install.
+- **Linux (Ubuntu)**: `sudo apt update && sudo apt install python3 python3-pip python3-venv`
+- **macOS**: instale via Homebrew → `brew install python`
+
+Confirme:
+```bash
+python --version   # ou python3 --version
+pip --version      # ou pip3 --version
+```
+
+---
+
+## 2. Baixar o projeto e abrir uma pasta
+
+1. Descompacte o `.zip` que você recebeu para uma pasta tipo
+   `C:\Projetos\jarvis-academico` (Windows) ou
+   `~/Projetos/jarvis-academico` (Linux/macOS).
+2. Abra um terminal **dentro dessa pasta**:
+   - Windows: dentro do Explorer, clique na barra de endereço e
+     digite `cmd` (ou `powershell`) e tecle Enter.
+   - Linux/macOS: `cd ~/Projetos/jarvis-academico`
+
+Para conferir que você está no lugar certo, rode:
+```bash
+ls          # Linux/macOS
+dir         # Windows
+```
+Você deve ver `main.py`, `requirements.txt`, `src/`, `data/`, etc.
+
+---
+
+## 3. Criar um ambiente virtual (recomendado)
+
+Um "ambiente virtual" (venv) é uma caixinha isolada onde instalamos
+as bibliotecas do projeto, sem bagunçar o Python do sistema. Crie:
+
+```bash
 python -m venv venv
+```
 
-# 3. Ative o ambiente
-# Linux/macOS:
-source venv/bin/activate
-# Windows (PowerShell):
-venv\Scripts\Activate.ps1
+Ative o ambiente:
+- **Windows (cmd)**: `venv\Scripts\activate`
+- **Windows (PowerShell)**: `venv\Scripts\Activate.ps1`
+  (se der erro de execução, rode antes:
+  `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`)
+- **Linux/macOS**: `source venv/bin/activate`
 
-# 4. Instale as dependências
+Você saberá que está ativo porque o prompt do terminal fica com
+`(venv)` no começo. Se quiser sair: `deactivate`.
+
+---
+
+## 4. Instalar as dependências
+
+Com o ambiente ativado:
+
+```bash
 pip install -r requirements.txt
 ```
 
-> ⚠️ A primeira execução baixa ~500 MB (PyTorch + modelo de embeddings). Tenha paciência.
+Isso instala:
+- `openai` → cliente para falar com o Gemma 12B
+- `sentence-transformers` → modelo que gera os embeddings (essa
+  primeira instalação pode levar alguns minutos e baixar uns 500 MB,
+  porque ele traz o PyTorch junto)
+- `numpy` → cálculos com vetores (similaridade do cosseno)
+- `pypdf` → leitura de arquivos PDF
 
-Para um tutorial detalhado de instalação (incluindo problemas comuns no Windows), veja [TUTORIAL.md](TUTORIAL.md).
+Se ficar muito tempo "preso", não cancele — o `sentence-transformers`
+é grande. Aguarde.
 
 ---
 
-## ▶️ Como rodar
+## 5. Rodar os testes (validação rápida)
+
+Antes de partir pra usar o sistema, confirme que está tudo no lugar:
+
+```bash
+python -m unittest discover tests
+```
+
+Você deve ver `OK` no final, com 8 testes passando. Se algum falhar,
+veja a seção 9 (Problemas comuns).
+
+---
+
+## 6. Rodar o JARVIS
 
 ```bash
 python main.py
 ```
 
-Na primeira execução, o sistema:
-1. Constrói o índice vetorial a partir dos documentos em `data/`.
-2. Baixa o modelo de embeddings (apenas na 1ª vez).
-3. Apresenta o prompt `Você:` para interação.
+O que acontece na primeira execução:
 
-### Comandos especiais durante a execução
+1. Como ainda não há índice de RAG, o sistema vai detectar e construir.
+2. Ele lê os 10 documentos em `data/`, divide em chunks e gera os
+   embeddings. Isso pode demorar um pouco (1ª vez baixa o modelo de
+   embeddings ~200 MB; nas próximas vezes é rápido).
+3. Depois aparece o banner do JARVIS e o prompt `Você: `.
 
-| Comando      | Função                                       |
-|--------------|----------------------------------------------|
-| `/sair`      | Encerra o programa                           |
-| `/reindex`   | Reconstrói o índice (após adicionar `data/`) |
-| `/debug`     | Mostra detalhes da última chamada (JSON cru) |
-| `/ajuda`     | Reexibe o banner inicial                     |
-
-### Exemplos de uso
+A partir daí, você pode conversar. Exemplos:
 
 ```
 Você: O que é regressão logística?
-JARVIS: A regressão logística é um modelo estatístico usado para problemas de
-classificação binária...
-[ferramenta utilizada: buscar_material_rag]
-
-Você: Adicione uma prova de Estruturas de Dados dia 2026-06-05 às 14:00
-JARVIS: Ok, adicionei a prova de Estruturas de Dados para o dia 5 de junho de 2026, às 14:00.
-[ferramenta utilizada: adicionar_evento]
-
+Você: Quem inventou o método da multiplicação de Knuth?
+Você: Tenho prova essa semana?
+Você: Adicione uma aula de Estruturas de Dados dia 2026-06-10 às 14:00
+Você: Adicione tarefa "Terminar relatório do trabalho" com prazo 2026-05-30
 Você: Liste minhas tarefas pendentes
-JARVIS: Aqui estão suas tarefas pendentes: ...
-[ferramenta utilizada: listar_tarefas]
-
-Você: O que tenho na agenda essa semana?
-JARVIS: Essa semana você tem uma aula de Banco de Dados agendada para o dia 23 de maio às 19:00!
-[ferramenta utilizada: consultar_agenda]
+Você: Marque a tarefa 1 como concluída
 ```
+
+### Comandos especiais (durante a execução):
+
+- `/sair` → encerra o programa
+- `/reindex` → reconstrói o índice (use depois de adicionar arquivos
+  novos em `data/`)
+- `/debug` → mostra detalhes da última chamada (ferramenta usada,
+  argumentos, saída completa) — útil para o vídeo de explicação
+- `/ajuda` → mostra o banner novamente
 
 ---
 
-## Estrutura do projeto
+## 7. Adicionar mais materiais ao RAG
 
-```
-jarvis-academico/
-├── main.py                     # Ponto de entrada (CLI)
-├── requirements.txt            # Dependências
-├── README.md                   # Este arquivo
-├── TUTORIAL.md                 # Tutorial detalhado de instalação
-├── .gitignore
-│
-├── src/                        # Código-fonte
-│   ├── config.py               # Configurações centralizadas
-│   ├── llm_client.py           # Cliente do Gemma 12B
-│   ├── rag.py                  # RAG: chunking, embeddings, busca semântica
-│   ├── agenda.py               # CRUD da agenda
-│   ├── tarefas.py              # CRUD das tarefas
-│   ├── tools.py                # Catálogo e despachante de ferramentas + logging
-│   └── jarvis.py               # Cérebro do agente (decisão + execução)
-│
-├── data/                       # Dataset acadêmico (10 documentos)
-│   ├── README.md               # Origem, tipo, limitações, chunking
-│   └── 01..10_*.md             # Conteúdo acadêmico em português
-│
-├── tests/                      # Testes unitários (unittest)
-│   └── test_basico.py
-│
-├── storage/                    # Estado persistente (JSON)
-│   ├── agenda.json             # criado automaticamente
-│   └── tarefas.json            # criado automaticamente
-│
-├── index/                      # Índice vetorial do RAG
-│   └── indice.pkl              # criado automaticamente
-│
-└── logs/                       # Logs de tool calling
-    └── tool_calls.log          # criado automaticamente
-```
+1. Coloque os arquivos `.txt`, `.md` ou `.pdf` na pasta `data/`.
+2. Rode o JARVIS e digite `/reindex` no prompt, ou apague a pasta
+   `index/` antes de iniciar.
 
 ---
 
-## Dataset
+## 8. Conferir os logs de Tool Calling (obrigatório no enunciado)
 
-10 documentos acadêmicos em português abordando temas de Computação:
+Cada chamada de ferramenta é registrada em `logs/tool_calls.log`. Para
+ver:
 
-| Arquivo                          | Tema                              |
-|----------------------------------|-----------------------------------|
-| `01_regressao_logistica.md`      | Regressão Logística               |
-| `02_embeddings.md`               | Embeddings                        |
-| `03_listas_encadeadas.md`        | Listas Encadeadas (TAD)           |
-| `04_tabelas_hash.md`             | Tabelas Hash e colisões           |
-| `05_redes_neurais.md`            | Redes Neurais Artificiais         |
-| `06_ordenacao.md`                | Algoritmos de Ordenação           |
-| `07_recursao.md`                 | Recursão                          |
-| `08_complexidade.md`             | Análise de Complexidade / Big-O   |
-| `09_banco_de_dados.md`           | Banco de Dados Relacional         |
-| `10_machine_learning.md`         | Introdução ao Machine Learning    |
-
-**Origem, tipo de conteúdo, limitações e estratégia de chunking**: detalhados em [`data/README.md`](data/README.md).
-
----
-
-## Engenharia de software
-
-- **Organização modular**: cada arquivo em `src/` tem uma responsabilidade clara.
-- **Separação de camadas**: persistência (JSON), lógica de negócio (CRUD), agente (LLM + tools), interface (CLI).
-- **Configuração centralizada**: todos os parâmetros em `src/config.py`.
-- **Testes unitários**: 8 testes em `tests/test_basico.py` cobrindo agenda, tarefas, chunking e contrato das ferramentas.
-- **Logging estruturado**: `logs/tool_calls.log` registra cada chamada (timestamp, ferramenta, entrada, saída).
-- **Tratamento de erros**: `try/except` em `tools.py` para não quebrar o agente em caso de falha de uma ferramenta.
-- **Imports preguiçosos**: bibliotecas pesadas só são importadas quando realmente usadas (permite rodar testes leves sem instalar PyTorch).
-
-Rodar os testes:
 ```bash
-python -m unittest discover tests
+# Linux/macOS
+cat logs/tool_calls.log
+
+# Windows
+type logs\tool_calls.log
 ```
 
----
-
-## IAs utilizadas para auxiliar no desenvolvimento
-
-- **Claude** 
-
-Mesmo com o auxílio dessa ferramenta, todo o código foi revisado e testado por mim antes da entrega.
+Cada linha tem timestamp, ferramenta chamada, argumentos passados e
+um resumo da saída. **Esse arquivo é uma das provas para o professor
+de que o sistema está fazendo tool calling de verdade.**
 
 ---
 
-## Roadmap — Trabalho 2 (em desenvolvimento)
+## 9. Problemas comuns
 
-- [ ] Funcionalidade 3.4: planejamento de estudos integrado (agenda + tarefas + materiais)
-- [ ] 2+ funcionalidades de aprendizado (geração de exercícios, active recall)
-- [ ] Avaliação sistemática com 10+ perguntas (corretas / parcialmente / incorretas)
-- [ ] Análise de pelo menos 3 falhas (tipo, causa, solução)
-- [ ] Diferencial: interface gráfica (a definir)
+**"ModuleNotFoundError: No module named 'openai'"**
+→ Você esqueceu de ativar o `venv` antes de rodar o `pip install`,
+ou está usando outro terminal. Ative o venv e rode `pip install -r
+requirements.txt` de novo.
+
+**O download do sentence-transformers trava ou demora muito**
+→ A primeira execução baixa ~500 MB. Em conexões lentas, demora.
+Aguarde sem cancelar. Se realmente travar, rode:
+`pip install --upgrade sentence-transformers`.
+
+**"SSL: CERTIFICATE_VERIFY_FAILED" no Windows**
+→ Atualize o `certifi`: `pip install --upgrade certifi`.
+
+**"openai.AuthenticationError" ou "401"**
+→ A chave do Gemma fornecida pelo professor expirou ou está errada.
+Confirme em `src/config.py` o valor de `GEMMA_API_KEY`.
+
+**"openai.APIConnectionError"**
+→ Seu computador não está conseguindo acessar `https://llm.liaufms.org`.
+Verifique sua conexão, ou se está numa rede com firewall.
+
+**A resposta do JARVIS vem em formato JSON bruto**
+→ Significa que a LLM ignorou a instrução de "responda em texto natural".
+Pode acontecer ocasionalmente com Gemma. Tente reformular a pergunta.
+Você pode usar `/debug` para ver o que aconteceu.
+
+**Ele responde "não encontrei materiais relevantes"**
+→ A pergunta pode ter sido enviada para `buscar_material_rag` mas
+o tema não está no dataset. Adicione mais documentos em `data/` e
+rode `/reindex`.
+
+**Erros de codificação (acentos errados) no Windows**
+→ No PowerShell, rode antes: `chcp 65001` para forçar UTF-8.
 
 ---
-
-## Autor
-
-- Victor Valenzuela de Alcântara Ferreira
-
-Disciplina de Inteligência Artificial — Sistemas de Informação — UFMS.
