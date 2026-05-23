@@ -103,6 +103,22 @@ def dividir_em_chunks(texto: str,
 
 
 # ------------------------- Construção do índice -------------------------
+# Extensões aceitas pelo RAG (mantém em sintonia com ler_documento)
+_EXTENSOES_VALIDAS = {".txt", ".md", ".pdf"}
+
+
+def _eh_indexavel(nome_arquivo: str) -> bool:
+    """Decide se um arquivo da pasta /data deve ser indexado pelo RAG.
+    Ignora arquivos ocultos, com extensão não suportada, e README
+    (que é meta-documentação do dataset, não conteúdo acadêmico)."""
+    if nome_arquivo.startswith("."):
+        return False
+    if nome_arquivo.lower().startswith("readme"):
+        return False
+    extensao = os.path.splitext(nome_arquivo)[1].lower()
+    return extensao in _EXTENSOES_VALIDAS
+
+
 def construir_indice() -> dict | None:
     """Lê /data, gera chunks + embeddings e salva em /index/indice.pkl."""
     import numpy as np  # noqa: F401  (usado indiretamente pelo modelo)
@@ -111,6 +127,7 @@ def construir_indice() -> dict | None:
     arquivos = sorted(
         f for f in os.listdir(config.DATA_DIR)
         if os.path.isfile(os.path.join(config.DATA_DIR, f))
+        and _eh_indexavel(f)
     )
     if not arquivos:
         print(f"[RAG] Nenhum documento em {config.DATA_DIR}. Adicione arquivos!")

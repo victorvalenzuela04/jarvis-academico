@@ -3,7 +3,7 @@ Testes básicos do JARVIS Acadêmico.
 
 Foco: validar a lógica que NÃO depende de rede (agenda, tarefas,
 chunking). Os módulos que falam com o LLM são testados manualmente
-durante o uso normal — não rodamos chamadas pagas em testes
+durante o uso normal --> não rodamos chamadas pagas em testes
 automatizados.
 
 Como rodar:
@@ -108,6 +108,20 @@ class TestChunking(unittest.TestCase):
         self.assertGreater(len(chunks), 1)
         for c in chunks:
             self.assertLessEqual(len(c), 500)
+
+    def test_filtro_de_arquivos_indexaveis(self):
+        from src import rag
+        # README é meta-documentação, não deve ser indexado
+        self.assertFalse(rag._eh_indexavel("README.md"))
+        self.assertFalse(rag._eh_indexavel("readme.md"))
+        # Arquivos ocultos não devem ser indexados
+        self.assertFalse(rag._eh_indexavel(".gitkeep"))
+        # Extensões não suportadas
+        self.assertFalse(rag._eh_indexavel("foto.png"))
+        # Arquivos válidos sim
+        self.assertTrue(rag._eh_indexavel("01_regressao.md"))
+        self.assertTrue(rag._eh_indexavel("notas.txt"))
+        self.assertTrue(rag._eh_indexavel("apostila.pdf"))
 
 
 class TestTools(unittest.TestCase):
